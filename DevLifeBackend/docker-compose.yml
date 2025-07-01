@@ -1,0 +1,62 @@
+version: '3.8' # შეგიძლიათ წაშალოთ ეს ხაზი, თუ არ გსურთ "version is obsolete" გაფრთხილება
+
+services:
+  # --- DevLifeBackend API Service ---
+  devlifebackend-api:
+    image: devlifebackend-api:latest # იყენებს თქვენ მიერ აწყობილ Image-ს
+    build:
+      context: ./DevLifeBackend # <--- ეს არის სწორი გზა Dockerfile-ის შემცველი საქაღალდისკენ
+      dockerfile: Dockerfile
+    ports:
+      - "5000:80"  # HTTP: მასპინძელი:კონტეინერი (თქვენი API უსმენს 80-ზე კონტეინერში)
+      - "7000:443" # HTTPS: მასპინძელი:კონტეინერი (თუ HTTPS გაქვთ კონფიგურირებული კონტეინერში)
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # PostgreSQL Connection String (შეამოწმეთ DB, User, Password თქვენი postgres_db სერვისთან)
+      ConnectionStrings:DefaultConnection: Host=postgres_db;Port=5432;Username=devlifeuser;Password=devlifepassword;Database=devlifedb
+      # Redis Connection String
+      ConnectionStrings:RedisConnection: redis_cache:6379
+      # JWT Settings - უნდა ემთხვეოდეს appsettings.json-ში არსებულს, ან შეგიძლიათ აქ გადაწეროთ
+      # !!! მნიშვნელოვანია: შეცვალეთ ეს უსაფრთხო, ძლიერი ქეით (მინიმუმ 16 სიმბოლო) !!!
+      Jwt:Key: "YourSuperSecretJwtKeyWhichMustBeAtLeast16CharactersLongAndStrong"
+      Jwt:Issuer: "DevLifeAPI"
+      Jwt:Audience: "DevLifeUsers"
+      # ASP.NET Core-ს აიძულებს მოუსმინოს კონკრეტულ პორტებს კონტეინერში
+      ASPNETCORE_URLS: "http://+:80;https://+:443" # ეს უზრუნველყოფს, რომ Kestrel უსმენს ორივე პორტზე
+    depends_on:
+      - postgres_db
+      - redis_cache
+      - mongodb_db
+    # შეგიძლიათ დაამატოთ volumes დებაგირებისთვის ან ლოგებისთვის
+    # volumes:
+    #   - ~/.vsdbg:/remote_debugger:rw # Visual Studio Remote Debugger-ისთვის (გააქტიურეთ საჭიროების შემთხვევაში)
+
+  # --- PostgreSQL Database Service ---
+  postgres_db:
+    image: postgres:15-alpine # რეკომენდებულია alpine ვერსიის გამოყენება მცირე ზომისთვის
+    environment:
+      POSTGRES_DB: devlifedb            # მონაცემთა ბაზის სახელი
+      POSTGRES_USER: devlifeuser        # მომხმარებლის სახელი
+      POSTGRES_PASSWORD: devlifepassword # პაროლი
+    ports:
+      - "5432:5432"                     # მასპინძელი:კონტეინერი
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # მონაცემების შენახვა მოცულობაში (persisted data)
+
+  # --- Redis Cache Service ---
+  redis_cache:
+    image: redis:latest                 # Redis-ის ოფიციალური Image
+    ports:
+      - "6379:6379"                     # მასპინძელი:კონტეინერი
+
+  # --- MongoDB Database Service ---
+  mongodb_db:
+    image: mongo:latest                 # MongoDB-ის ოფიციალური Image
+    ports:
+      - "27017:27017"                   # მასპინძელი:კონტეინერი
+    volumes:
+      - mongo_data:/data/db             # მონაცემების შენახვა მოცულობაში (persisted data)
+
+volumes:
+  postgres_data:                        # განსაზღვრეთ მოცულობა PostgreSQL-ისთვის
+  mongo_data:                           # განსაზღვრეთ მოცულობა MongoDB-ისთვის
